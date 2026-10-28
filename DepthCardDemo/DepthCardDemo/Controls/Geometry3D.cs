@@ -5,19 +5,23 @@ using System.Numerics;
 namespace DepthCardDemo.Controls;
 
 /// <summary>
-/// Represents a 3D vertex with position coordinates.
+/// Represents a 3D vertex with position coordinates and UV texture coordinates.
 /// </summary>
 public struct Vertex3D
 {
     public float X { get; set; }
     public float Y { get; set; }
     public float Z { get; set; }
+    public float U { get; set; }
+    public float V { get; set; }
 
-    public Vertex3D(float x, float y, float z)
+    public Vertex3D(float x, float y, float z, float u = 0, float v = 0)
     {
         X = x;
         Y = y;
         Z = z;
+        U = u;
+        V = v;
     }
 
     public Vector3 ToVector3() => new Vector3(X, Y, Z);
