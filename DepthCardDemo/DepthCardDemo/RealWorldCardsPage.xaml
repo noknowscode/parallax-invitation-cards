@@ -72,20 +72,21 @@
                     <!-- Dark gradient background -->
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0.2,0" EndPoint="0.8,1">
-                            <GradientStop Color="#F214141E" Offset="0"/>
-                            <GradientStop Color="#FA0A0A0F" Offset="0.5"/>
-                            <GradientStop Color="#F20F0F16" Offset="1"/>
+                            <GradientStop Color="#14141E" Offset="0"/>
+                            <GradientStop Color="#0A0A0F" Offset="0.5"/>
+                            <GradientStop Color="#0F0F16" Offset="1"/>
                         </LinearGradientBrush>
                     </Border.Background>
 
                     <Grid>
-                        <!-- Corner accent brackets -->
+                        <!-- Corner accent brackets with dynamic highlights -->
                         <!-- Top-left corner -->
                         <Canvas Width="20" Height="20"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
                                 Margin="15,15,0,0">
-                            <Path Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
+                            <Path x:Name="TopLeftCorner"
+                                  Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
                                   Data="M 20,0 L 0,0 L 0,20"/>
                         </Canvas>
 
@@ -94,7 +95,8 @@
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Top"
                                 Margin="0,15,15,0">
-                            <Path Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
+                            <Path x:Name="TopRightCorner"
+                                  Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
                                   Data="M 0,0 L 20,0 L 20,20"/>
                         </Canvas>
 
@@ -103,7 +105,8 @@
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
                                 Margin="15,0,0,15">
-                            <Path Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
+                            <Path x:Name="BottomLeftCorner"
+                                  Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
                                   Data="M 0,0 L 0,20 L 20,20"/>
                         </Canvas>
 
@@ -112,7 +115,8 @@
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Bottom"
                                 Margin="0,0,15,15">
-                            <Path Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
+                            <Path x:Name="BottomRightCorner"
+                                  Stroke="#D4AF37" StrokeThickness="1" Opacity="0.6"
                                   Data="M 0,20 L 20,20 L 20,0"/>
                         </Canvas>
 
@@ -133,7 +137,7 @@
                                            FontWeight="Normal"
                                            CharacterSpacing="280"
                                            Foreground="#D4AF37"
-                                           Opacity="0.8"
+                                           Opacity="0.9"
                                            HorizontalAlignment="Center"
                                            Margin="0,0,0,16"
                                            FontFamily="Bebas Neue"
@@ -157,19 +161,22 @@
                                                CharacterSpacing="150"
                                                Foreground="#F4E4BC"
                                                HorizontalAlignment="Center"
-                                               Opacity="0.9"
+                                               Opacity="0.85"
                                                Margin="0,4,0,0"
                                                FontFamily="Cormorant Garamond"/>
                                 </StackPanel>
 
-                                <!-- 3D Icosahedron -->
+                                <!-- 3D Icosahedron with PBR Material -->
                                 <controls:Simple3DObject Grid.Row="2"
                                                          GeometryType="Icosahedron"
                                                          Size="90"
                                                          Width="340"
                                                          Height="340"
                                                          FaceColor="#90D4AF37"
-                                                         TiltRotationMultiplier="1.5"
+                                                         TextureType="PBR"
+                                                         Metallic="0.9"
+                                                         Roughness="0.3"
+                                                         TiltRotationMultiplier="0"
                                                          EnableAutoRotate="True"
                                                          AutoRotateSpeed="0.3"
                                                          Margin="0,8,0,8"
@@ -199,7 +206,7 @@
                                                FontSize="12"
                                                FontWeight="Normal"
                                                Foreground="#F4E4BC"
-                                               Opacity="0.7"
+                                               Opacity="0.6"
                                                HorizontalAlignment="Center"
                                                FontFamily="Cormorant Garamond"/>
 

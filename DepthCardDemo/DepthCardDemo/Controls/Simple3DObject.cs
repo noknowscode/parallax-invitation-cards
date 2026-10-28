@@ -123,6 +123,54 @@ public partial class Simple3DObject : UserControl
         set => SetValue(TiltRotationMultiplierProperty, value);
     }
 
+    public static readonly DependencyProperty TextureTypeProperty =
+        DependencyProperty.Register(
+            nameof(TextureType),
+            typeof(TextureType),
+            typeof(Simple3DObject),
+            new PropertyMetadata(TextureType.None));
+
+    /// <summary>
+    /// Type of procedural texture to apply to the mesh.
+    /// </summary>
+    public TextureType TextureType
+    {
+        get => (TextureType)GetValue(TextureTypeProperty);
+        set => SetValue(TextureTypeProperty, value);
+    }
+
+    public static readonly DependencyProperty MetallicProperty =
+        DependencyProperty.Register(
+            nameof(Metallic),
+            typeof(double),
+            typeof(Simple3DObject),
+            new PropertyMetadata(0.5));
+
+    /// <summary>
+    /// Metallic factor for PBR rendering (0 = dielectric, 1 = metallic).
+    /// </summary>
+    public double Metallic
+    {
+        get => (double)GetValue(MetallicProperty);
+        set => SetValue(MetallicProperty, value);
+    }
+
+    public static readonly DependencyProperty RoughnessProperty =
+        DependencyProperty.Register(
+            nameof(Roughness),
+            typeof(double),
+            typeof(Simple3DObject),
+            new PropertyMetadata(0.5));
+
+    /// <summary>
+    /// Roughness factor for PBR rendering (0 = smooth/glossy, 1 = rough/matte).
+    /// </summary>
+    public double Roughness
+    {
+        get => (double)GetValue(RoughnessProperty);
+        set => SetValue(RoughnessProperty, value);
+    }
+
     #endregion
 
     public Simple3DObject()
@@ -250,6 +298,10 @@ public partial class Simple3DObject : UserControl
 
     private void OnDepthCardTiltChanged(object? sender, DepthCardTiltChangedEventArgs e)
     {
+        // Skip entirely if tilt rotation is disabled
+        if (TiltRotationMultiplier == 0)
+            return;
+
         // Ignore card tilt when user is interacting with the 3D object
         // This prevents jitter when hovering/dragging
         if (_isHovering || _isDragging)
@@ -306,6 +358,126 @@ public partial class Simple3DObject : UserControl
         _renderTimer?.Stop();
         _renderTimer = null;
     }
+
+    #region Texture and PBR Helpers
+
+    private Windows.UI.Color GetTextureColor(float u, float v, Vector3 worldPos)
+    {
+        var baseColor = FaceColor;
+
+        return TextureType switch
+        {
+            TextureType.Checkerboard => GetCheckerboard(u, v),
+            TextureType.Gradient => GetGradient(u, v),
+            TextureType.Noise => GetNoise(worldPos),
+            TextureType.PBR => baseColor, // Base color for PBR, lighting applied separately
+            _ => baseColor
+        };
+    }
+
+    private Windows.UI.Color GetCheckerboard(float u, float v)
+    {
+        int size = 4;
+        bool checkU = ((int)(u * size) % 2) == 0;
+        bool checkV = ((int)(v * size) % 2) == 0;
+        bool isWhite = checkU ^ checkV;
+
+        var color1 = FaceColor;
+        var color2 = Windows.UI.Color.FromArgb(
+            color1.A,
+            (byte)(color1.R * 0.3),
+            (byte)(color1.G * 0.3),
+            (byte)(color1.B * 0.3)
+        );
+
+        return isWhite ? color1 : color2;
+    }
+
+    private Windows.UI.Color GetGradient(float u, float v)
+    {
+        var color1 = FaceColor;
+        var color2 = Windows.UI.Color.FromArgb(
+            color1.A,
+            (byte)(color1.R * 0.5),
+            (byte)(color1.G * 0.5),
+            (byte)(color1.B * 1.2)
+        );
+
+        float t = (u + v) * 0.5f;
+        return LerpColor(color2, color1, t);
+    }
+
+    private Windows.UI.Color GetNoise(Vector3 worldPos)
+    {
+        float noise = SimplexNoise(worldPos.X * 0.1f, worldPos.Y * 0.1f, worldPos.Z * 0.1f);
+        noise = (noise + 1f) * 0.5f; // Remap from [-1,1] to [0,1]
+
+        var color = FaceColor;
+        float intensity = 0.7f + noise * 0.3f;
+
+        return Windows.UI.Color.FromArgb(
+            color.A,
+            (byte)(color.R * intensity),
+            (byte)(color.G * intensity),
+            (byte)(color.B * intensity)
+        );
+    }
+
+    private float SimplexNoise(float x, float y, float z)
+    {
+        // Simple 3D noise approximation using sine waves
+        float noise = MathF.Sin(x * 5.2f) * MathF.Cos(y * 5.7f) +
+                      MathF.Sin(y * 4.3f) * MathF.Cos(z * 4.8f) +
+                      MathF.Sin(z * 5.1f) * MathF.Cos(x * 5.5f);
+        return noise * 0.33f;
+    }
+
+    private (byte r, byte g, byte b) CalculatePBRLighting(Vector3 normal, Vector3 viewDir, Vector3 lightDir, Windows.UI.Color albedo)
+    {
+        // PBR lighting using Cook-Torrance BRDF
+        float metallic = (float)Metallic;
+        float roughness = (float)Roughness;
+
+        // Ambient
+        float ambient = 0.2f;
+
+        // Diffuse (Lambert)
+        float NdotL = Math.Max(0, Vector3.Dot(normal, lightDir));
+        float diffuse = NdotL * (1f - metallic);
+
+        // Specular (Blinn-Phong approximation of Cook-Torrance)
+        Vector3 halfDir = Vector3.Normalize(lightDir + viewDir);
+        float NdotH = Math.Max(0, Vector3.Dot(normal, halfDir));
+        float shininess = (1f - roughness) * 128f + 1f;
+        float specular = MathF.Pow(NdotH, shininess) * (1f - roughness);
+
+        // Fresnel approximation
+        float NdotV = Math.Max(0, Vector3.Dot(normal, viewDir));
+        float fresnel = metallic + (1f - metallic) * MathF.Pow(1f - NdotV, 5f);
+
+        // Combine
+        float totalLight = ambient + diffuse + specular * fresnel;
+        totalLight = Math.Clamp(totalLight, 0f, 2f);
+
+        return (
+            (byte)(albedo.R * totalLight),
+            (byte)(albedo.G * totalLight),
+            (byte)(albedo.B * totalLight)
+        );
+    }
+
+    private Windows.UI.Color LerpColor(Windows.UI.Color a, Windows.UI.Color b, float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return Windows.UI.Color.FromArgb(
+            (byte)(a.A + (b.A - a.A) * t),
+            (byte)(a.R + (b.R - a.R) * t),
+            (byte)(a.G + (b.G - a.G) * t),
+            (byte)(a.B + (b.B - a.B) * t)
+        );
+    }
+
+    #endregion
 
     private void RenderFrame()
     {
@@ -375,36 +547,74 @@ public partial class Simple3DObject : UserControl
         // Clear to transparent
         Array.Fill<byte>(pixels, 0);
 
-        // Render faces (very transparent) and wireframe edges
+        // Render faces with texture/material support
         var baseColor = FaceColor;
         var lightDirection = Vector3.Normalize(new Vector3(1, 1, 2));
+        var viewDirection = new Vector3(0, 0, 1);
+        bool hasTexture = TextureType != TextureType.None;
 
         foreach (var (face, depth, normal) in faceDepths)
         {
             // Back-face culling
-            var viewDirection = new Vector3(0, 0, 1);
             if (Vector3.Dot(normal, viewDirection) <= 0)
                 continue; // Skip back-facing triangles
 
-            // Calculate lighting intensity
-            var lightIntensity = Math.Max(0, Vector3.Dot(normal, lightDirection));
-            var ambientLight = 0.3f;
-            var totalLight = Math.Clamp(ambientLight + lightIntensity * 0.7f, 0, 1);
+            // Get vertices
+            var v0 = _mesh.Vertices[face.V0];
+            var v1 = _mesh.Vertices[face.V1];
+            var v2 = _mesh.Vertices[face.V2];
 
             // Get triangle points
             var p0 = projectedVertices[face.V0];
             var p1 = projectedVertices[face.V1];
             var p2 = projectedVertices[face.V2];
 
-            // Draw wireframe edges only - pure wireframe, no fill
-            var edgeR = (byte)(baseColor.R * totalLight);
-            var edgeG = (byte)(baseColor.G * totalLight);
-            var edgeB = (byte)(baseColor.B * totalLight);
-            var edgeAlpha = (byte)(baseColor.A); // Full opacity for edges
+            // Calculate triangle center for texture sampling
+            var centerWorld = new Vector3(
+                (v0.X + v1.X + v2.X) / 3f,
+                (v0.Y + v1.Y + v2.Y) / 3f,
+                (v0.Z + v1.Z + v2.Z) / 3f
+            );
 
-            DrawLine(pixels, width, height, p0, p1, edgeR, edgeG, edgeB, edgeAlpha);
-            DrawLine(pixels, width, height, p1, p2, edgeR, edgeG, edgeB, edgeAlpha);
-            DrawLine(pixels, width, height, p2, p0, edgeR, edgeG, edgeB, edgeAlpha);
+            // Calculate average UV
+            float avgU = (v0.U + v1.U + v2.U) / 3f;
+            float avgV = (v0.V + v1.V + v2.V) / 3f;
+
+            // Get texture color
+            var texColor = hasTexture ? GetTextureColor(avgU, avgV, centerWorld) : baseColor;
+
+            // Apply lighting
+            byte faceR, faceG, faceB;
+            if (TextureType == TextureType.PBR)
+            {
+                var pbr = CalculatePBRLighting(normal, viewDirection, lightDirection, texColor);
+                faceR = pbr.r;
+                faceG = pbr.g;
+                faceB = pbr.b;
+            }
+            else
+            {
+                // Simple lighting for non-PBR textures
+                var lightIntensity = Math.Max(0, Vector3.Dot(normal, lightDirection));
+                var ambientLight = 0.3f;
+                var totalLight = Math.Clamp(ambientLight + lightIntensity * 0.7f, 0, 1);
+                faceR = (byte)(texColor.R * totalLight);
+                faceG = (byte)(texColor.G * totalLight);
+                faceB = (byte)(texColor.B * totalLight);
+            }
+
+            // Fill triangle if textured
+            if (hasTexture)
+            {
+                var faceAlpha = (byte)(texColor.A * 0.9); // Slightly transparent for depth
+                FillTriangle(pixels, width, height, p0, p1, p2, faceR, faceG, faceB, faceAlpha);
+            }
+
+            // Draw wireframe edges (always)
+            var edgeAlpha = (byte)(baseColor.A * (hasTexture ? 0.8 : 1.0)); // Subtle edges when textured
+            DrawLine(pixels, width, height, p0, p1, faceR, faceG, faceB, edgeAlpha);
+            DrawLine(pixels, width, height, p1, p2, faceR, faceG, faceB, edgeAlpha);
+            DrawLine(pixels, width, height, p2, p0, faceR, faceG, faceB, edgeAlpha);
         }
 
         // Write pixels to bitmap
@@ -633,4 +843,16 @@ public enum GeometryType
     Octahedron,
     Diamond,
     Icosahedron
+}
+
+/// <summary>
+/// Procedural texture types for material rendering.
+/// </summary>
+public enum TextureType
+{
+    None,
+    Checkerboard,
+    Gradient,
+    Noise,
+    PBR
 }

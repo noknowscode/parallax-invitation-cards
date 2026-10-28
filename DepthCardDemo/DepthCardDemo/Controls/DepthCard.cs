@@ -446,6 +446,14 @@ public partial class DepthCard : ContentControl
 
         // Pause breathing animation while hovering
         _breathingStoryboard?.Pause();
+
+        // Initialize transform to current state to avoid jerk
+        if (_cardTransform != null)
+        {
+            // Ensure we start from neutral tilt state when hovering
+            _rotateX = 0;
+            _rotateY = 0;
+        }
     }
 
     private void OnPointerExited(object sender, PointerRoutedEventArgs e)
@@ -520,7 +528,7 @@ public partial class DepthCard : ContentControl
 
         // Add perspective scaling: edges rotating away shrink, edges toward grow
         // Calculate perspective scale factors (1.0 = neutral, <1.0 = shrink, >1.0 = grow)
-        double perspectiveFactor = 0.003; // How much perspective to apply
+        double perspectiveFactor = 0.002; // Reduced for smoother transition
         double scaleX = 1.0 - Math.Abs(_rotateY) * perspectiveFactor;
         double scaleY = 1.0 - Math.Abs(_rotateX) * perspectiveFactor;
 
