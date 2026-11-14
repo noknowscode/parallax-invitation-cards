@@ -1,3 +1,5 @@
+> **Moved to uno-lab.** This project now lives in the `parallax-invitation-cards/` folder of [noknowscode/uno-lab](https://github.com/noknowscode/uno-lab/tree/main/parallax-invitation-cards) (private). This repository is archived and kept for its history.
+
 # Depth Card Component
 
 ## Design & Architecture Specification
